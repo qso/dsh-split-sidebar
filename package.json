@@ -1,6 +1,6 @@
 {
   "name": "dsh-split-sidebar",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Split the conversation horizontally for independent terminal tabs, side-by-side files and seekable media previews.",
   "type": "module",
   "main": "./index.js",

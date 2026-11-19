@@ -5,7 +5,7 @@ const provider = '@deepseek-ai/dsh-client-ui-sidebar-terminal';
 const css = `
 .ss-panel{box-sizing:border-box;position:absolute;inset:auto 0 0;display:flex;flex-direction:column;border-top:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary)}
 .ss-resize{position:absolute;z-index:2;top:0;left:0;right:0;height:5px;cursor:row-resize;touch-action:none}
-.ss-toolbar{display:flex;align-items:center;gap:4px;padding:5px 6px 5px 10px;flex:none}
+.ss-toolbar{display:flex;align-items:center;gap:4px;padding-inline:10px 6px;flex:none}
 .ss-tabs{display:flex;align-items:center;gap:3px;min-width:0;overflow:auto;scrollbar-width:none}
 .ss-chip{display:flex;align-items:center;position:relative;flex:0 0 auto;border-radius:var(--dsw-radius-sm);color:var(--dsw-alias-label-secondary)}
 .ss-chip[data-active=true]{background:var(--dsw-alias-markdown-tag);color:var(--dsw-alias-label-primary)}
@@ -15,8 +15,6 @@ const css = `
 .ss-toolbar .ss-add{width:28px;height:28px;padding:0;color:var(--dsw-alias-label-secondary)}
 @media(hover:hover){.ss-chip:hover,.ss-chip .ss-close:hover{background:var(--dsw-alias-interactive-bg-hover)}.ss-chip:hover .ss-close{opacity:1;pointer-events:auto}}
 .ss-body{display:flex;flex:1;min-height:0;min-width:0;overflow:hidden}
-.ss-body [data-sidebar-terminal]{padding-top:0}
-.ss-body [data-sidebar-terminal]>div:has(> .xterm){padding-top:min(4px,var(--ss-screen-top,8px))}
 .ss-resize:focus-visible,.ss-chip button:focus-visible{outline:2px solid var(--dsw-alias-label-primary);outline-offset:-2px}
 `;
 const newTab = number => ({id:crypto.randomUUID(),kind:'terminal',number});

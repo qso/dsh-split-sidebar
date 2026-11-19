@@ -16,6 +16,9 @@ window.__ModuleLoader__.load({
     }
     const css = `
     @font-face{font-family:"DSH Prompt Separators";src:local("Symbols Nerd Font Mono"),local("SymbolsNerdFontMono-Regular"),url("data:font/woff2;base64,d09GMgABAAAAAAGsAAoAAAAABAwAAAFhAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAABmAANAqBCG4BNgIkAwwLDAAEIAWCYgdMGzUDAJ4FTlkWp+YIMoeNQzwKP/JJGQ8fa+39c0kGSaerTNdQITQqhKIpWugMJe6QrJ3k/b+bd0CBfpC2hpO753PUpgIgcRRHp27yfxMsoEldlKe0FoVdGKUBraWSwGtt0ijydJvMUjsKRJWC4u+tsjGLl7ycwbQAB4uS1+QjCymWwhfAFuUZZNELQ8U5i8jlg+QjTc/S6PGFc4QB5EEFOXSwBMgBwtLZQly8VizC1vxKZ9hYmEqoRWcjWThJmL5b2A8Cwf+kPC2GeSmb/eH73iAEpFTMsovIyoDg7mnMmNIA/MhTPgnkFQTIMGtKbjAIfQTIKOrHbM7IEKFgYEtW5MrCmquYzWi4Y3O2PawoWPd5SlY4u498vnCpT37z97if76rq6wNgC4VOlH8ZGskKzu4jny+41Ce/+Xvcz6btl/jeedAi6kWlrHp3LNYCQJ7IRDZykS/e7n5qjhufaIku6AEAAAA=") format("woff2");unicode-range:U+E0B0-E0B3;font-display:swap}
+    [data-sidebar-right-panel] [data-dockkit-strip][role=tablist],.ss-toolbar{padding-block:5px}
+    [data-sidebar-terminal]{padding-top:0}
+    [data-sidebar-terminal]>div:has(> .xterm){padding-top:min(4px,var(--ss-terminal-padding-top,4px))}
     .ss-toggle{width:28px;padding:0!important;flex:none;color:var(--dsw-alias-label-secondary)}
     .ss-toggle svg{width:15px;height:15px;transform:rotate(90deg) scaleX(-1)}
     .ss-settings{color:var(--dsw-alias-label-primary);width:100%;box-sizing:border-box;min-width:0}
@@ -115,9 +118,9 @@ window.__ModuleLoader__.load({
         if (valid(fg)) rules.push(root+'{--dsw-alias-label-primary:'+fg+'}',root+' .xterm-rows{color:'+fg+'}');
         const pad = (pair,i) => Array.isArray(pair) && Number.isInteger(pair[i]) ? Math.max(0,Math.min(64,pair[i]))+'px' : '8px';
         if (profile?.paddingX || profile?.paddingY) {
-          rules.push(root+'{padding-top:0;--ss-screen-top:'+pad(profile.paddingY,0)+'}');
-          rules.push(root+' div:has(> .xterm){padding:'+[
-            pad(profile.paddingY,0),pad(profile.paddingX,1),pad(profile.paddingY,1),pad(profile.paddingX,0)].join(' ')+'}');
+          rules.push(root+'{--ss-terminal-padding-top:'+pad(profile.paddingY,0)+'}');
+          rules.push(root+' > div:has(> .xterm){padding-left:'+pad(profile.paddingX,0)+
+            ';padding-right:'+pad(profile.paddingX,1)+';padding-bottom:'+pad(profile.paddingY,1)+'}');
         }
         style.textContent = rules.join('\n');
       }
@@ -165,7 +168,7 @@ window.__ModuleLoader__.load({
       const opened=new Set();
       let panelModule, workbench, disposed=false;
       function loadPanel() {
-        panelModule ??= import(new URL('api/split-sidebar/panel.mjs?v=0.3.1',document.baseURI).href)
+        panelModule ??= import(new URL('api/split-sidebar/panel.mjs?v=0.3.2',document.baseURI).href)
           .then(m=>{ if(disposed) throw Error('侧栏已关闭'); return workbench=m.createWorkbench(React,ctx,{ui,useTheme}); })
           .catch(error=>{panelModule=undefined;throw error;});
         return panelModule;
@@ -303,7 +306,7 @@ window.__ModuleLoader__.load({
       ctx.effect(() => {
         const style = document.createElement('style');
         style.textContent = css; document.head.append(style);
-        document.documentElement.dataset.dshSplitSidebar='0.3.1';
+        document.documentElement.dataset.dshSplitSidebar='0.3.2';
         return () => { style.remove(); delete document.documentElement.dataset.dshSplitSidebar; };
       }, 'split-sidebar: style');
       const add = (name, options, component) => ctx.effect(() => ctx.slots.inject(name, () =>

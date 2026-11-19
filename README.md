@@ -16,7 +16,7 @@
 
 打开 **插件 → DSH Split Sidebar** 查看终端设置，也可以在右侧新标签页的 **更多工具 → 设置** 打开同一组控件。字体和字号写入 DSH 的终端偏好，在 DSH 通用设置里修改也会同步。
 
-**从 Ghostty 导入**读取当前主机的字体、字号、前景色、背景色和水平、垂直内边距。在 macOS 下按 Ghostty 的逻辑尺寸导入字号，取 DSH 支持的 10–20 像素整数。字体名称对应的字体需要安装在运行桌面客户端的设备上。右侧终端使用导入的上边距，底部终端将上边距限制在 4 像素以内，给首行留出更多空间。修改 Ghostty 后可再次导入。光标、行高、程序的 ANSI 配色和键位由 DSH 原生终端控制。导入仅在点击按钮时读取一次，插件不记录配置原文。字体大小的单位见 [Ghostty 配置说明](https://ghostty.org/docs/config/reference#font-size)。
+**从 Ghostty 导入**读取当前主机的字体、字号、前景色、背景色和水平、垂直内边距。在 macOS 下按 Ghostty 的逻辑尺寸导入字号，取 DSH 支持的 10–20 像素整数。字体名称对应的字体需要安装在运行桌面客户端的设备上。右侧与底部的标签上下各留 5 像素。两处终端首行的上边距都是 4 像素，导入更小的上边距时，两处一起采用该值。修改 Ghostty 后可再次导入。光标、行高、程序的 ANSI 配色和键位由 DSH 原生终端控制。导入仅在点击按钮时读取一次，插件不记录配置原文。字体大小的单位见 [Ghostty 配置说明](https://ghostty.org/docs/config/reference#font-size)。
 
 | 插件配置 | 默认值 | 用途 |
 | --- | --- | --- |
@@ -28,7 +28,7 @@
 
 ## 安装
 
-在 DSH 插件管理器里通过 GitHub 安装 `github:qso/dsh-split-sidebar#v0.3.1`。本地开发可克隆仓库、运行 `npm ci --ignore-scripts`，再选择该目录安装。已在 macOS 的 DSH Desktop 0.2.2-rc.5 验证。原名为 DSH Dockline，已有旧版的用户请使用新版替换旧包，避免两个侧栏同时加载。
+在 DSH 插件管理器里通过 GitHub 安装 `github:qso/dsh-split-sidebar#v0.3.2`。本地开发可克隆仓库、运行 `npm ci --ignore-scripts`，再选择该目录安装。已在 macOS 的 DSH Desktop 0.2.2-rc.5 验证。原名为 DSH Dockline，已有旧版的用户请使用新版替换旧包，避免两个侧栏同时加载。
 
 希望进一步加快长会话切换和图片预览，可以同时安装 [DSH Better Performance](https://github.com/qso/dsh-better-performance)。
 
