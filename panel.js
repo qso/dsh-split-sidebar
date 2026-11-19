@@ -1,42 +1,43 @@
-// Imported only after the user opens the horizontal split. All tab metadata
-// belongs to its session. The only live terminal screen is the selected tab.
+// Only the selected tab mounts the DSH terminal screen. Each tab holds its
+// process independently of the screen while collapsed or in another session.
+const prefix = 'dsh-split-sidebar.tabs.v2.';
+const provider = '@deepseek-ai/dsh-client-ui-sidebar-terminal';
 const css = `
-.ss-panel{position:relative;display:flex;flex-direction:column;box-sizing:border-box;min-width:0;min-height:78px;max-height:65%;flex:0 1 var(--ss-height,240px);border-top:1px solid var(--dsw-alias-border-l2,#8886);background:var(--dsw-alias-bg-base,Canvas);color:var(--dsw-alias-label-primary,CanvasText)}
-.ss-resize{position:absolute;inset:-4px 0 auto;height:7px;cursor:row-resize;touch-action:none;z-index:2}.ss-resize:focus-visible{outline:2px solid Highlight}
-.ss-toolbar,.ss-tabs,.ss-tab{display:flex;align-items:center;min-width:0}.ss-toolbar{padding:4px 8px;gap:4px;border-bottom:1px solid var(--dsw-alias-border-l1,#8883)}
-.ss-tabs{overflow-x:auto;gap:3px}.ss-tab{border-radius:6px;flex:none}.ss-tab:has([aria-selected=true]){background:var(--dsw-alias-bg-layer-2,#8883)}
-.ss-tab button,.ss-menu button,.ss-files button{font:inherit;font-size:12px;color:inherit;border:0;background:transparent;padding:5px 8px;cursor:pointer}.ss-tab button[aria-label^=关闭]{opacity:.65;padding:3px 5px}
-.ss-actions{display:flex;align-items:center;margin-inline-start:auto}.ss-new{position:relative}.ss-menu{position:absolute;left:0;top:100%;display:grid;z-index:5;min-width:130px;padding:4px;background:var(--dsw-alias-bg-base,Canvas);color:var(--dsw-alias-label-primary,CanvasText);border:1px solid var(--dsw-alias-border-l2,#8885);border-radius:7px;box-shadow:0 4px 12px #0002}
-.ss-menu button,.ss-files button{text-align:left;border-radius:4px}.ss-menu button:hover,.ss-files button:hover{background:var(--dsw-alias-bg-layer-2,#8882)}
-.ss-body{flex:1 1 0;min-height:0;overflow:auto}.ss-files{padding:6px;display:grid}.ss-files button{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ss-empty{padding:8px 12px;font-size:13px}
-.ss-term{height:100%;box-sizing:border-box;padding:4px 6px;background:#17191d;color:#eee;display:flex;flex-direction:column}.ss-screen{flex:1 1 0;min-height:0;overflow:hidden}.ss-term-status{font-size:12px}.ss-screen .xterm{height:100%}
+.ss-panel{box-sizing:border-box;position:absolute;inset:auto 0 0;display:flex;flex-direction:column;border-top:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary)}
+.ss-resize{position:absolute;z-index:2;top:0;left:0;right:0;height:5px;cursor:row-resize;touch-action:none}
+.ss-toolbar{display:flex;align-items:center;gap:4px;padding:8px 6px 2px 10px;flex:none}
+.ss-tabs{display:flex;align-items:center;gap:3px;min-width:0;overflow:auto;scrollbar-width:none}
+.ss-chip{display:flex;align-items:center;position:relative;flex:0 0 auto;border-radius:var(--dsw-radius-sm);color:var(--dsw-alias-label-secondary)}
+.ss-chip[data-active=true]{background:var(--dsw-alias-markdown-tag);color:var(--dsw-alias-label-primary)}
+.ss-chip [role=tab]{font:inherit;font-size:var(--dsh-content-font-size-secondary,13px);color:inherit;line-height:1;white-space:nowrap;height:28px;min-width:80px;padding:0 26px 0 10px;text-align:left;border:0;border-radius:inherit;background:transparent;cursor:pointer}
+.ss-chip .ss-close{position:absolute;top:4px;right:4px;width:20px;height:20px;display:grid;place-content:center;padding:0;color:var(--dsw-alias-label-tertiary);border:0;border-radius:var(--dsw-radius-sm);background:transparent;cursor:pointer;opacity:0;pointer-events:none}
+.ss-chip:focus-within .ss-close,.ss-chip[data-active=true] .ss-close{opacity:1;pointer-events:auto}
+.ss-toolbar .ss-add{width:28px;height:28px;padding:0;color:var(--dsw-alias-label-secondary)}
+@media(hover:hover){.ss-chip:hover,.ss-chip .ss-close:hover{background:var(--dsw-alias-interactive-bg-hover)}.ss-chip:hover .ss-close{opacity:1;pointer-events:auto}}
+.ss-body{display:flex;flex:1;min-height:0;min-width:0;overflow:hidden}
+.ss-resize:focus-visible,.ss-chip button:focus-visible{outline:2px solid var(--dsw-alias-label-primary);outline-offset:-2px}
 `;
-const keyPrefix='dsh-split-sidebar.tabs.v2.';
-const tabsFor=new Set(['terminal','files','settings']);
-function newTab(kind,number) {
-  return {id:crypto.randomUUID(),kind,number};
-}
-function readLayout(session,defaultTab) {
+const newTab = number => ({id:crypto.randomUUID(),kind:'terminal',number});
+const title = tab => '终端 '+tab.number;
+function readLayout(session) {
   try {
-    const saved=JSON.parse(sessionStorage.getItem(keyPrefix+session));
-    const tabs=saved?.tabs?.filter(t=>tabsFor.has(t?.kind)&&typeof t.id==='string'&&Number.isSafeInteger(t.number));
-    if(tabs?.length) return {tabs,active:tabs.some(t=>t.id===saved.active)?saved.active:tabs[0].id,next:Math.max(0,...tabs.filter(t=>t.kind==='terminal').map(t=>t.number))+1};
+    const saved=JSON.parse(sessionStorage.getItem(prefix+session));
+    const tabs=saved?.tabs?.filter(t=>t?.kind==='terminal'&&typeof t.id==='string'&&Number.isSafeInteger(t.number)&&t.number>0);
+    if(tabs?.length)return {tabs,active:tabs.some(t=>t.id===saved.active)?saved.active:tabs[0].id,
+      next:Math.max(...tabs.map(t=>t.number),Number.isSafeInteger(saved.next)?saved.next-1:0)+1};
   } catch {}
-  const tab=newTab(defaultTab,defaultTab==='terminal'?1:0);
-  return {tabs:[tab],active:tab.id,next:tab.number+1};
+  const tab=newTab(1);
+  return {tabs:[tab],active:tab.id,next:2};
 }
-function heightPreference() {
-  try {return Math.min(800,Math.max(96,Number(localStorage.getItem('dsh-split-sidebar.height'))||240));} catch {return 240;}
-}
-function title(t) {return t.kind==='terminal'?'终端 '+t.number:t.kind==='files'?'已打开的文件':'分屏设置';}
 
-export function createWorkbench(React,ctx,{Settings,Icon,settings}) {
+export function createWorkbench(React,ctx,{ui,useTheme}) {
   const h=React.createElement, leases=new Map(), layouts=new Map();
-  let dead=false, terminalModule;
-  function loadTerminal() {
-    terminalModule ??= import('./terminal.mjs').then(m=>m.createScreen(React)).catch(e=>{terminalModule=undefined;throw e;});
-    return terminalModule;
-  }
+  const {Button,Tooltip,IconPlusOutlineRegular,IconCloseOutlineRegular}=ui;
+  const t=ctx.locale.bind('sidebarTerminal');
+  const slot='sidebar.right.pane.tab';
+  const subscribeBody=listener=>ctx.slots.subscribe(slot,listener);
+  const getBody=()=>ctx.slots.entriesOfSlot(slot).find(entry=>entry.options.key===provider)?.component;
+  let dead=false;
   function modelFor(session,tab) {
     const existing=leases.get(tab.id);
     if(existing)return existing.model;
@@ -62,70 +63,48 @@ export function createWorkbench(React,ctx,{Settings,Icon,settings}) {
     holdWhenReady();
     return model;
   }
-  function Terminal({session,tab}) {
-    const [Screen,setScreen]=React.useState(null),[error,setError]=React.useState(false);
-    const [attempt,retry]=React.useReducer(n=>n+1,0);
-    React.useEffect(()=>{
-      let alive=true;
-      loadTerminal().then(component=>{if(alive)setScreen(()=>component);}).catch(()=>{if(alive)setError(true);});
-      return ()=>{alive=false;};
-    },[attempt]);
-    if(!Screen)return h('div',{className:'ss-empty',role:'status'},error?
-      h('button',{onClick:()=>{setError(false);retry();}},'终端载入失败，重试'):'正在打开终端…');
-    return h(Screen,{getModel:()=>modelFor(session,tab),label:title(tab)});
+
+  function Terminal({session,tab,replace}) {
+    const Body=React.useSyncExternalStore(subscribeBody,getBody);
+    const [model,setModel]=React.useState(null);
+    React.useEffect(()=>{setModel(modelFor(session,tab));},[session,tab.id]);
+    const info={tab:{id:tab.id,visible:true,actions:{openTab:replace}}};
+    if(!Body)return h('p',{role:'status'},'请在 DSH 中启用原生侧栏终端。');
+    if(!model)return null;
+    return h(Body,{useTabInfo:()=>info,useTheme,view:()=>model,
+      useTerminal:()=>React.useSyncExternalStore(model.state.subscribe.bind(model.state),model.state.getSnapshot.bind(model.state)),
+      t:(key,...args)=>key==='title'?title(tab)+'输入':t(key,...args)});
   }
-  function Files({session}) {
-    const store=ctx.sidebarRight.openTabs;
-    const rows=React.useSyncExternalStore(store.subscribe.bind(store),store.getSnapshot.bind(store))
-      .filter(tab=>tab.sessionId===session&&tab.contentId.startsWith('dsh-resource://file/'));
-    return rows.length?h('div',{className:'ss-files'},rows.map(t=>{
-      let path=t.contentId;
-      try {path=decodeURIComponent(new URL(path).pathname.split('/').slice(3).join('/'));}catch{}
-      return h('button',{key:t.tabId,title:path,onClick:()=>{
-        if(!ctx.sidebarRight.isExpanded())ctx.sidebarRight.toggleExpanded();
-        ctx.sidebarRight.focus(t.tabId);
-      }},path);
-    })):h('div',{className:'ss-empty'},'本会话还没有打开的文件。',h('button',{onClick:()=>ctx.sidebarRight.openTab('files')},'浏览文件'));
-  }
+
   function Panel({session,collapse}) {
-    const [layout,setLayout]=React.useState(()=>layouts.get(session)??readLayout(session,settings.defaultTab));
-    const [menu,setMenu]=React.useState(false),panel=React.useRef(null),newMenu=React.useRef(null),drag=React.useRef(null);
-    React.useEffect(()=>{
-      layouts.set(session,layout);
-      try{if(layout.tabs.length)sessionStorage.setItem(keyPrefix+session,JSON.stringify(layout));
-        else sessionStorage.removeItem(keyPrefix+session);}catch{}
+    const [layout,setLayout]=React.useState(()=>layouts.get(session)??readLayout(session));
+    const panel=React.useRef(null),drag=React.useRef(null);
+    React.useLayoutEffect(()=>{
+      if(layout.tabs.length)layouts.set(session,layout);else layouts.delete(session);
+      try{if(layout.tabs.length)sessionStorage.setItem(prefix+session,JSON.stringify(layout));
+        else sessionStorage.removeItem(prefix+session);}catch{}
     },[layout,session]);
-    React.useEffect(()=>{
-      if(!menu)return;
-      const close=e=>{if(!newMenu.current?.contains(e.target))setMenu(false);};
-      document.addEventListener('pointerdown',close,true);
-      return ()=>document.removeEventListener('pointerdown',close,true);
-    },[menu]);
-    function add(kind) {
-      setMenu(false);
+
+    function add() {
       setLayout(prev=>{
-        const exist=kind!=='terminal'&&prev.tabs.find(t=>t.kind===kind);
-        if(exist)return {...prev,active:exist.id};
-        const tab=newTab(kind,prev.next);
-        return {tabs:[...prev.tabs,tab],active:tab.id,next:prev.next+Number(kind==='terminal')};
+        const tab=newTab(prev.next);
+        return {tabs:[...prev.tabs,tab],active:tab.id,next:prev.next+1};
       });
     }
-    function close(t) {
-      if(t.kind==='terminal'){
-        const lease=leases.get(t.id);
-        ctx.webTerminals.close(session,t.id,'split-sidebar://terminal/'+t.id);
-        lease?.end();leases.delete(t.id);
-      }
-      const ix=layout.tabs.indexOf(t),tabs=layout.tabs.filter(tab=>tab.id!==t.id);
-      if(!tabs.length){
-        layouts.delete(session);
-        try{sessionStorage.removeItem(keyPrefix+session);}catch{}
-        collapse();return;
-      }
-      setLayout({...layout,tabs,active:layout.active===t.id?tabs[Math.min(ix,tabs.length-1)].id:layout.active});
+    function release(tab) {
+      ctx.webTerminals.close(session,tab.id,'split-sidebar://terminal/'+tab.id);
+      leases.get(tab.id)?.end();leases.delete(tab.id);
+    }
+    function close(tab,replace=false) {
+      release(tab);
+      const index=layout.tabs.indexOf(tab),tabs=layout.tabs.filter(t=>t.id!==tab.id);
+      if(replace)tabs.splice(index,0,newTab(layout.next));
+      const active=layout.active===tab.id?tabs[Math.min(index,tabs.length-1)]?.id:layout.active;
+      setLayout({tabs,active,next:layout.next+Number(replace)});
+      if(!tabs.length)collapse();
     }
     function resize(value,save) {
-      const el=panel.current;
+      const el=panel.current?.parentElement;
       if(!el)return;
       const px=Math.max(78,Math.min(value,el.parentElement.clientHeight*.65));
       el.style.setProperty('--ss-height',px+'px');
@@ -138,24 +117,27 @@ export function createWorkbench(React,ctx,{Settings,Icon,settings}) {
       e.preventDefault();setLayout({...layout,active:layout.tabs[next].id});
       panel.current.querySelectorAll('[role=tab]')[next]?.focus();
     }
-    const t=layout.tabs.find(tab=>tab.id===layout.active);
-    return h('section',{className:'ss-panel',ref:panel,'aria-label':'会话下方分屏','data-split-sidebar-panel':'',style:{'--ss-height':heightPreference()+'px'}},
+    const selected=layout.tabs.find(tab=>tab.id===layout.active);
+    return h('section',{className:'ss-panel',ref:panel,'aria-label':'底部终端','data-split-sidebar-panel':''},
       h('style',null,css),
-      h('div',{className:'ss-resize',role:'separator','aria-label':'调整下方分屏高度','aria-orientation':'horizontal',tabIndex:0,
-        onPointerDown:e=>{if(e.button!==0)return;drag.current={y:e.clientY,h:panel.current.offsetHeight};e.currentTarget.setPointerCapture(e.pointerId);},
+      h('div',{className:'ss-resize',role:'separator','aria-label':'调整底部终端高度','aria-orientation':'horizontal',tabIndex:0,
+        onPointerDown:e=>{if(e.button!==0)return;const el=panel.current;drag.current={y:e.clientY,h:el.offsetHeight};
+          el.parentElement.dataset.resizing='';e.currentTarget.setPointerCapture(e.pointerId);},
         onPointerMove:e=>{if(drag.current)resize(drag.current.h+drag.current.y-e.clientY,false);},
-        onPointerUp:e=>{if(drag.current)resize(drag.current.h+drag.current.y-e.clientY,true);drag.current=null;},
-        onPointerCancel:()=>{drag.current=null;},onLostPointerCapture:()=>{drag.current=null;},
+        onPointerUp:e=>{if(drag.current)resize(drag.current.h+drag.current.y-e.clientY,true);},
+        onLostPointerCapture:()=>{drag.current=null;delete panel.current.parentElement.dataset.resizing;},
         onKeyDown:e=>{if(['ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();resize(panel.current.offsetHeight+(e.key==='ArrowUp'?24:-24),true);}}}),
-      h('div',{className:'ss-toolbar'},h('div',{className:'ss-tabs',role:'tablist','aria-label':'下方分屏标签'},layout.tabs.map(tab=>
-        h('div',{key:tab.id,className:'ss-tab'},h('button',{role:'tab','aria-selected':tab.id===layout.active,tabIndex:tab.id===layout.active?0:-1,
-          onKeyDown:moveTab,onClick:()=>setLayout({...layout,active:tab.id})},title(tab)),
-        h('button',{type:'button','aria-label':'关闭'+title(tab),title:tab.kind==='terminal'?'关闭标签并结束此终端':'关闭标签',onClick:()=>close(tab)},'×')))),
-      h('div',{className:'ss-new',ref:newMenu,onKeyDown:e=>{if(e.key==='Escape'){setMenu(false);newMenu.current.querySelector('button')?.focus();}}},
-        h('button',{className:'ss-tab-action',type:'button',title:'新建标签','aria-label':'新建分屏标签','aria-expanded':menu,onClick:()=>setMenu(!menu)},'＋'),
-        menu&&h('div',{className:'ss-menu'},h('button',{onClick:()=>add('terminal')},'新建终端'),h('button',{onClick:()=>add('files')},'已打开的文件'))),
-      h('div',{className:'ss-actions'},h('button',{className:'ss-icon',title:'分屏设置','aria-label':'分屏设置',onClick:()=>add('settings')},h(Icon,{name:'settings'})))),
-      h('div',{className:'ss-body',role:'tabpanel','aria-label':title(t)},t.kind==='terminal'?h(Terminal,{key:t.id,session,tab:t}):t.kind==='files'?h(Files,{session}):h(Settings)));
+      h('div',{className:'ss-toolbar'},h('div',{className:'ss-tabs',role:'tablist','aria-label':'底部终端标签'},layout.tabs.map(tab=>
+        h('div',{className:'ss-chip',key:tab.id,'data-active':String(tab===selected),
+          onMouseDown:e=>{if(e.button===1)e.preventDefault();},
+          onAuxClick:e=>{if(e.button===1){e.preventDefault();e.stopPropagation();close(tab);}}},
+          h('button',{type:'button',role:'tab','aria-selected':tab===selected,tabIndex:tab===selected?0:-1,
+            onKeyDown:moveTab,onClick:()=>setLayout({...layout,active:tab.id})},title(tab)),
+          h('button',{type:'button',className:'ss-close','aria-label':'关闭'+title(tab),onClick:()=>close(tab)},h(IconCloseOutlineRegular,{size:12}))))),
+        h(Tooltip,{label:'新建终端',side:'bottom',delayMs:500},h(Button,{className:'ss-add',size:'sm','aria-label':'新建终端',onClick:add},
+          h(IconPlusOutlineRegular,{size:15})))),
+      h('div',{className:'ss-body',role:'tabpanel','aria-label':selected?title(selected):'底部终端'},selected&&
+        h(Terminal,{key:selected.id,session,tab:selected,replace:()=>close(selected,true)})));
   }
   return {Panel,dispose(){dead=true;for(const lease of leases.values())lease.end();leases.clear();layouts.clear();}};
 }

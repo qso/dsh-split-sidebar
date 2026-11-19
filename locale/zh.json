@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "DSH Split Sidebar",
+    "description": "会话下方的多标签终端，右侧的双列文件树与媒体预览。两处终端共用字体和外观。",
+    "detail": "detail/zh.md"
+  }
+}

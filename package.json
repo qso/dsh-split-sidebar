@@ -1,13 +1,14 @@
 {
   "name": "dsh-split-sidebar",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Split the conversation horizontally for independent terminal tabs, side-by-side files and seekable media previews.",
   "type": "module",
   "main": "./index.js",
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
   },
   "dsh": {
     "bundle": {
@@ -23,7 +24,10 @@
         "@deepseek-ai/dsh-client-ui-sidebar-right",
         "@deepseek-ai/dsh-client-ui-sidebar-files",
         "@deepseek-ai/dsh-client-ui-conversation",
-        "@deepseek-ai/dsh-api-terminal-controller"
+        "@deepseek-ai/dsh-api-terminal-controller",
+        "@deepseek-ai/dsh-client-ui-sidebar-terminal",
+        "@deepseek-ai/dsh-client-ui-theme",
+        "@deepseek-ai/dsh-client-ui-plugin-manager"
       ]
     }
   },
@@ -34,7 +38,9 @@
     "media-ranges.js",
     "assets.js",
     "panel.js",
-    "terminal.js"
+    "ghostty.js",
+    "locale",
+    "detail"
   ],
   "license": "MIT",
   "repository": {
@@ -54,8 +60,6 @@
     "desktop-plugin"
   ],
   "dependencies": {
-    "@deepseek-ai/schemastery": "3.19.0",
-    "@xterm/addon-fit": "0.11.0",
-    "@xterm/xterm": "6.0.0"
+    "@deepseek-ai/schemastery": "3.19.0"
   }
 }

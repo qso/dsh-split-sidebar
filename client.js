@@ -3,6 +3,8 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react');
     const {createPortal} = require('react-dom');
+    const ui = require('@deepseek-ai/dsh-client-ui-primitives');
+    const {Button, Tooltip, IconPanelLeftOutlineRegular, MenuItemButton, Input, Switch} = ui;
     const h = React.createElement;
     const mime = {mp4:'video/mp4', m4v:'video/mp4', mov:'video/quicktime', webm:'video/webm', mkv:'video/x-matroska',
       avi:'video/x-msvideo', ogv:'video/ogg', mp3:'audio/mpeg', m4a:'audio/mp4', aac:'audio/aac',
@@ -13,10 +15,21 @@ window.__ModuleLoader__.load({
       try { return {session:decodeURIComponent(match[1]), path:match[2].split('/').map(decodeURIComponent).join('/')}; } catch {}
     }
     const css = `
-    .ss-icon,.ss-tab-action{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;flex:none;padding:0;background:transparent;color:inherit;border:0;border-radius:6px;cursor:pointer}
-    .ss-icon:hover,.ss-icon[aria-pressed=true],.ss-tab-action:hover{background:var(--dsw-alias-bg-layer-2,#8882)}
-    .ss-icon:focus-visible,.ss-panel button:focus-visible{outline:2px solid Highlight}
-    .ss-settings{padding:16px;display:grid;align-content:start;gap:14px}.ss-settings label{display:flex;align-items:center;gap:8px}
+    .ss-toggle{width:28px;padding:0!important;flex:none;color:var(--dsw-alias-label-secondary)}
+    .ss-toggle svg{width:15px;height:15px;transform:rotate(90deg) scaleX(-1)}
+    .ss-settings{color:var(--dsw-alias-label-primary);width:100%;box-sizing:border-box;min-width:0}
+    .ss-settings-side{padding:8px 18px;overflow:auto}
+    .ss-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 0;border-bottom:.5px solid var(--dsw-alias-border-l2);flex-wrap:wrap}
+    .ss-row section{flex:1 1 9em;min-width:0}.ss-row strong{font-size:14px;font-weight:500;line-height:22px}
+    .ss-row p,.ss-settings [role=status]{margin:3px 0 0;color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
+    .ss-row input{max-width:100%;box-sizing:border-box}.ss-row .ss-family{width:min(210px,100%)}.ss-row .ss-size{width:72px}
+    .ss-motion{min-height:0;max-height:65%;flex:0 0 0px;position:relative;overflow:clip;transition:flex-basis var(--ds-transition-duration-slow) var(--ds-ease-in-out)}
+    .ss-motion[data-open=true]{flex-basis:min(var(--ss-height,240px),var(--ss-limit,65%))}
+    .ss-motion>.ss-panel{height:min(var(--ss-height,240px),var(--ss-limit,100vh));transform:translateY(100%);transition:transform var(--ds-transition-duration-slow) var(--ds-ease-in-out)}
+    .ss-motion[data-open=true]>.ss-panel{transform:translateY(0)}
+    .ss-motion[data-resizing]{transition:none}
+    @starting-style{.ss-motion[data-open=true]{flex-basis:0px}.ss-motion[data-open=true]>.ss-panel{transform:translateY(100%)}}
+    @media(prefers-reduced-motion:reduce){.ss-motion,.ss-motion>.ss-panel{transition:none}}
     .dl-media button,.dl-media label{cursor:pointer;color:inherit;background:transparent;border:1px solid var(--dsw-alias-border-l1,#8883);border-radius:6px;padding:4px 8px}
     .dl-media{display:flex;flex-direction:column;gap:8px;align-items:center;width:100%;padding:8px;box-sizing:border-box}
     .dl-media video,.dl-media audio{display:block;width:100%;max-height:65vh;object-fit:contain}.dl-media p{font-size:13px;margin:6px}
@@ -28,7 +41,7 @@ window.__ModuleLoader__.load({
       let saved = {};
       try { saved = JSON.parse(localStorage.getItem(storageKey) || localStorage.getItem('dsh-dockline.preferences.v1') || '{}') || {}; } catch {}
       const settings = {split:typeof saved.split === 'boolean' ? saved.split : defaults.autoSplit,
-        defaultTab:saved.defaultTab === 'files' || saved.terminal === false ? 'files' : 'terminal', preload:saved.preload === 'none' ? 'none' : 'metadata'};
+        appearance:saved.appearance || null, preload:saved.preload === 'none' ? 'none' : 'metadata'};
       const notify = new EventTarget();
       function set(key, value) {
         settings[key] = value;
@@ -64,35 +77,75 @@ window.__ModuleLoader__.load({
         }, [split]);
         return h('span',{ref,hidden:true});
       }
-      function Icon({name}) {
-        const paths={split:'M3.5 5h17v14h-17z M4 13.5h16',settings:'M10.4 3h3.2l.6 2.3 2 .9 2.1-.9 1.6 2.8-1.7 1.6.2 2.3 1.5 1.7-1.6 2.8-2.2-.6-1.9 1.1-.6 2.3h-3.2l-.7-2.3-2-1-2.1.6L4 13.8l1.6-1.6.1-2.3L4 8.3l1.6-2.8 2.2.7 2-1z M14.5 11.5a2.5 2.5 0 1 0-5 0 2.5 2.5 0 0 0 5 0'};
-        return h('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.6,
-          strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:paths[name]}));
-      }
-      function Settings() {
-        const split=useSetting('split'),preload=useSetting('preload'),first=useSetting('defaultTab');
-        return h('section',{className:'ss-settings','aria-label':'分屏侧栏设置'},
-          h('label',null,h('input',{type:'checkbox',checked:split,onChange:e=>set('split',e.target.checked)}),'文件树与预览并排'),
-          h('label',null,h('input',{type:'checkbox',checked:preload==='metadata',onChange:e=>set('preload',e.target.checked?'metadata':'none')}),'打开媒体时预读播放信息'),
-          h('label',null,'空面板首次打开',h('select',{value:first,onChange:e=>set('defaultTab',e.target.value)},
-            h('option',{value:'terminal'},'终端'),h('option',{value:'files'},'已打开的文件'))));
-      }
+      const watchTheme = listener => ctx.on('theme/change', listener);
+      const getTheme = () => ctx.theme.getTheme();
+      const useTheme = () => React.useSyncExternalStore(watchTheme,getTheme);
       const settingsKind='split-sidebar-settings';
-      function SettingsGear() {
-        return h('button',{className:'ss-icon',type:'button',title:'分屏侧栏设置','aria-label':'分屏侧栏设置',
-          onClick:()=>ctx.sidebarRight.openTab(settingsKind)},h(Icon,{name:'settings'}));
+      function applyColors(style, profile) {
+        const valid = color => typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color);
+        const root = '[data-sidebar-terminal]';
+        const bg = profile?.background, fg = profile?.foreground;
+        const rules = [];
+        if (valid(bg)) rules.push(root+'{--dsw-alias-bg-base:'+bg+';background:'+bg+'}',root+' .xterm-scrollable-element{background-color:'+bg+'!important}');
+        if (valid(fg)) rules.push(root+'{--dsw-alias-label-primary:'+fg+'}',root+' .xterm-rows{color:'+fg+'}');
+        const pad = (pair,i) => Array.isArray(pair) && Number.isInteger(pair[i]) ? Math.max(0,Math.min(64,pair[i]))+'px' : '8px';
+        if (profile?.paddingX || profile?.paddingY) rules.push(root+' div:has(> .xterm){padding:'+[
+          pad(profile.paddingY,0),pad(profile.paddingX,1),pad(profile.paddingY,1),pad(profile.paddingX,0)].join(' ')+'}');
+        style.textContent = rules.join('\n');
+      }
+      ctx.effect(() => {
+        const style = document.createElement('style'); document.head.append(style);
+        const update = () => applyColors(style,settings.appearance);
+        update(); const off = subscribe(update);
+        return () => {off(); style.remove();};
+      },'split-sidebar: shared terminal appearance');
+      function Settings({inSidebar=false}) {
+        const theme=useTheme(), split=useSetting('split'), colors=useSetting('appearance');
+        const [status,setStatus]=React.useState(''), [busy,setBusy]=React.useState(false);
+        const family=theme.fontFamilies.terminal, size=theme.fontSizes.terminal;
+        async function importAppearance(){
+          setBusy(true);setStatus('');
+          try {
+            const response=await fetch(new URL('api/split-sidebar/ghostty',document.baseURI),{method:'POST',
+              credentials:'same-origin',redirect:'error',headers:{'X-Split-Sidebar-Import':'appearance'}});
+            if (!response.ok) throw Error('无法读取本机 Ghostty 配置。请确认已安装 Ghostty。');
+            const profile=await response.json();
+            set('appearance',profile);
+            ctx.theme.setFontFamily('terminal',profile.fontFamily || '');
+            if (Number.isInteger(profile.fontSize)) ctx.theme.setFontSize('terminal',profile.fontSize);
+            setStatus('已应用到底部和右侧终端。');
+          } catch(error) {setStatus(error.message);} finally {setBusy(false);}
+        }
+        const row=(id,title,description,control)=>h('div',{className:'ss-row',key:id},
+          h('section',null,h('strong',null,title),description&&h('p',null,description)), control);
+        const field=(key,props,save)=>h(Input,{key,defaultValue:key,size:'sm',...props,
+          onBlur:e=>save(e.currentTarget),onKeyDown:e=>{if(e.key==='Enter'&&!e.nativeEvent.isComposing)e.currentTarget.blur();}});
+        return h('div',{className:'ss-settings'+(inSidebar?' ss-settings-side':''),'aria-label':'分屏侧栏设置'},
+          row('family','终端字体','底部与右侧终端共用。',field(family,{'aria-label':'终端字体',className:'ss-family',maxLength:200,
+            placeholder:'系统等宽字体',spellCheck:false},el=>{ctx.theme.setFontFamily('terminal',el.value);el.value=getTheme().fontFamilies.terminal;})),
+          row('size','终端字号','10–20 像素',field(size,{'aria-label':'终端字号',className:'ss-size',type:'number',min:10,max:20,step:1},
+            el=>{const n=el.valueAsNumber;if(Number.isInteger(n)&&n>=10&&n<=20)ctx.theme.setFontSize('terminal',n);el.value=String(getTheme().fontSizes.terminal);})),
+          row('import','Ghostty 外观','导入字体、字号、前景色、背景色和内边距。',
+            h(Button,{size:'sm',disabled:busy,onClick:importAppearance},busy?'正在读取…':'从 Ghostty 导入')),
+          colors&&row('reset','终端配色与间距','恢复为当前 DSH 主题。',h(Button,{size:'sm',onClick:()=>{set('appearance',null);setStatus('已恢复 DSH 配色和间距。');}},'恢复默认')),
+          status&&h('p',{role:'status'},status),
+          row('split','文件双列','右侧空间足够时，并排显示目录树与文件预览。',h(Switch,{checked:split,label:'文件双列',onChange:v=>set('split',v)})));
+      }
+      function SettingsRow({onDismiss}) {
+        return h(MenuItemButton,{separatorBefore:true,onSelect:()=>{onDismiss();ctx.sidebarRight.openTab(settingsKind);}},'设置');
       }
       const opened=new Set();
       let panelModule, workbench, disposed=false;
       function loadPanel() {
-        panelModule ??= import(new URL('api/split-sidebar/panel.mjs',document.baseURI).href)
-          .then(m=>{ if(disposed) throw Error('侧栏已关闭'); return workbench=m.createWorkbench(React,ctx,{Settings,Icon,settings}); })
+        panelModule ??= import(new URL('api/split-sidebar/panel.mjs?v=0.3.0',document.baseURI).href)
+          .then(m=>{ if(disposed) throw Error('侧栏已关闭'); return workbench=m.createWorkbench(React,ctx,{ui,useTheme}); })
           .catch(error=>{panelModule=undefined;throw error;});
         return panelModule;
       }
       ctx.effect(()=>()=>{disposed=true;workbench?.dispose();opened.clear();},'split-sidebar: panel lifetime');
       function HeaderButton({sessionId}) {
-        const ref=React.useRef(null);
+        const [shell,setShell]=React.useState(null);
+        const locateShell=React.useCallback(node=>{if(node)setShell(node.closest('[data-phase]'));},[]);
         const [open,setOpen]=React.useState(()=>opened.has(sessionId));
         const [panel,setPanel]=React.useState(()=>workbench);
         const [error,setError]=React.useState('');
@@ -105,14 +158,43 @@ window.__ModuleLoader__.load({
         },[open,panel,attempt]);
         function toggle() {
           if(open)opened.delete(sessionId);else opened.add(sessionId);
+          if(!open && resetTabs.current){resetTabs.current=false;setGeneration(n=>n+1);}
           setOpen(!open);setError('');
         }
-        const shell=ref.current?.closest('[data-phase]');
-        const button=h('button',{ref,type:'button',className:'ss-icon','data-split-sidebar-toggle':'',
-          title:open?'收起下方分屏':'向下分屏','aria-label':open?'收起下方分屏':'向下分屏','aria-expanded':open,onClick:toggle},h(Icon,{name:'split'}));
-        return h(React.Fragment,null,button,open&&shell&&createPortal(panel?
-          h(panel.Panel,{session:sessionId,collapse:toggle}):
-          h('div',{role:'status'},error?h('button',{onClick:()=>{setError('');retry();}},error+'，重试'):'正在打开分屏…'),shell));
+        const [mounted, setMounted]=React.useState(open);
+        const resetTabs=React.useRef(false);
+        const [generation,setGeneration]=React.useState(0);
+        React.useLayoutEffect(()=>{if(open)setMounted(true);},[open]);
+        const motion=React.useRef(null);
+        // Keep the terminal grid at its final height during the slide. Only
+        // actual resizing should reflow a running shell or send PTY resizes.
+        React.useLayoutEffect(()=>{
+          const el=motion.current;
+          if(!el || !shell)return;
+          const measure=()=>el.style.setProperty('--ss-limit',Math.floor(shell.clientHeight*.65)+'px');
+          measure();
+          const observer=new ResizeObserver(measure);observer.observe(shell);
+          return ()=>observer.disconnect();
+        },[shell,mounted]);
+        React.useLayoutEffect(()=>{
+          const el=motion.current;
+          if(!el)return;
+          el.inert=!open;
+          if(open || !mounted)return;
+          let alive=true;
+          const moving=el.getAnimations().filter(a=>a.transitionProperty==='flex-basis');
+          Promise.allSettled(moving.map(a=>a.finished)).then(()=>{if(alive)setMounted(false);});
+          return ()=>{alive=false;};
+        },[open,mounted]);
+        const label=open?'收起底部终端':'展开底部终端';
+        const button=h(Tooltip,{label,side:'bottom',delayMs:500},h(Button,{size:'sm',className:'ss-toggle',
+          'aria-label':label,'aria-expanded':open,'data-split-sidebar-toggle':'',onClick:toggle},h(IconPanelLeftOutlineRegular,{'aria-hidden':true})));
+        const size=Number.parseInt(localStorage.getItem('dsh-split-sidebar.height'),10);
+        return h(React.Fragment,null,h('span',{ref:locateShell,style:{display:'inline-flex'}},button),(mounted||open)&&shell&&createPortal(
+          h('div',{ref:motion,className:'ss-motion','data-open':String(open),'aria-hidden':!open,
+            style:{'--ss-height':(Number.isFinite(size)?Math.min(800,Math.max(78,size)):240)+'px'}},
+            panel?h(panel.Panel,{key:generation,session:sessionId,collapse:()=>{resetTabs.current=true;opened.delete(sessionId);setOpen(false);}}):
+              h('div',{role:'status'},error?h(Button,{size:'sm',onClick:()=>{setError('');retry();}},error+'，重试'):'正在打开终端…')),shell));
       }
       function Header({sessionId}) { return h(HeaderButton,{key:sessionId,sessionId}); }
       function Media({content,resourceAddress}) {
@@ -193,7 +275,7 @@ window.__ModuleLoader__.load({
       ctx.effect(() => {
         const style = document.createElement('style');
         style.textContent = css; document.head.append(style);
-        document.documentElement.dataset.dshSplitSidebar='0.2.0';
+        document.documentElement.dataset.dshSplitSidebar='0.3.0';
         return () => { style.remove(); delete document.documentElement.dataset.dshSplitSidebar; };
       }, 'split-sidebar: style');
       const add = (name, options, component) => ctx.effect(() => ctx.slots.inject(name, () =>
@@ -202,15 +284,15 @@ window.__ModuleLoader__.load({
       const settingsId='dsh-split-sidebar/settings';
       ctx.effect(()=>ctx.sidebarRightTabs.register({id:settingsId,kind:settingsKind,multiple:false,priority:'extension',title:()=>'分屏侧栏设置'}),
         'split-sidebar: settings tab');
-      add('sidebar.right.pane.tab',{key:settingsId},Settings);
-      add('sidebar.right.tab.guide.actions',{id:'split-sidebar.settings'},SettingsGear);
-      add('sidebar.right.tab.document.actions',{id:'split-sidebar.settings'},SettingsGear);
+      add('sidebar.right.pane.tab',{key:settingsId},()=>h(Settings,{inSidebar:true}));
+      add('plugins.bundle.config',{key:'dsh-split-sidebar'},Settings);
+      add('sidebar.right.tab.guide.actions',{id:'split-sidebar.settings'},SettingsRow);
       add('sidebar.right.tab.document.actions',{id:'split-sidebar.navigator'},Split);
       const id = 'dsh-split-sidebar/media', extensions = Object.keys(mime);
       ctx.effect(() => ctx.documentPreviews.register({id,extensions,binaryExtensions:extensions,priority:'extension',
         title:()=>'侧栏媒体播放器',loading:'renderer'}),'split-sidebar: media');
       add('sidebar.right.tab.document',{key:id},Media);
     }
-    return {inject:['slots','sessions','sidebarRight','sidebarRightTabs','webTerminals','remote.terminal','documentPreviews','remote','remote.workspaceFiles','remote.session'],apply};
+    return {inject:['slots','theme','locale','sessions','sidebarRight','sidebarRightTabs','webTerminals','remote.terminal','documentPreviews','remote','remote.workspaceFiles','remote.session'],apply};
   },
 });

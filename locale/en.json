@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "DSH Split Sidebar",
+    "description": "Tabbed terminals below the conversation, with a side-by-side file tree and media previews. Both terminal locations share their appearance.",
+    "detail": "detail/en.md"
+  }
+}

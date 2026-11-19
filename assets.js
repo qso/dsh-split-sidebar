@@ -1,27 +1,24 @@
-// Exact owner-only DSH routes for immutable, explicitly named frontend assets.
 import {readFile} from 'node:fs/promises';
-import {createRequire} from 'node:module';
-import {dirname,join} from 'node:path';
-const require = createRequire(import.meta.url);
+import {readGhostty} from './ghostty.js';
+
 export function registerAssets(ctx) {
-  const emulator = dirname(require.resolve('@xterm/xterm'));
-  const fit = dirname(require.resolve('@xterm/addon-fit'));
-  const assets = {
-    'panel.mjs':new URL('./panel.js',import.meta.url),
-    'terminal.mjs':new URL('./terminal.js',import.meta.url),
-    'xterm.mjs':join(emulator,'xterm.mjs'),
-    'fit.mjs':join(fit,'addon-fit.mjs'),
-    'xterm.css':join(emulator,'../css/xterm.css'),
-  };
-  for (const [name,source] of Object.entries(assets)) {
-    let body;
-    ctx.effect(() => ctx.connection.fetch.register({
-      path:'/api/split-sidebar/'+name, methods:['GET'],requestBody:'buffered',
-      async fetch() {
-        body ??= await readFile(source);
-        return new Response(body,{headers:{'Content-Type':name.endsWith('.css')?'text/css':'text/javascript',
-          'Cache-Control':'no-cache','X-Content-Type-Options':'nosniff'}});
-      },
-    }),'split-sidebar: '+name);
-  }
+  ctx.effect(() => ctx.connection.fetch.register({
+    path:'/api/split-sidebar/panel.mjs', methods:['GET'], requestBody:'buffered',
+    async fetch() {
+      return new Response(await readFile(new URL('./panel.js', import.meta.url)), {headers:{
+        'Content-Type':'text/javascript', 'Cache-Control':'no-cache', 'X-Content-Type-Options':'nosniff',
+      }});
+    },
+  }), 'split-sidebar: terminal panel');
+  // DSH grants these exact fetch routes to the authenticated owner. A button
+  // requests the import once; no subprocess or file watcher runs on startup.
+  ctx.effect(() => ctx.connection.fetch.register({
+    path:'/api/split-sidebar/ghostty', methods:['POST'], requestBody:'buffered',
+    async fetch(request) {
+      const headers = {'Cache-Control':'no-store'};
+      if (request.headers.get('X-Split-Sidebar-Import') !== 'appearance') return new Response(null,{status:403,headers});
+      try {return Response.json(await readGhostty(), {headers});}
+      catch (error) {return Response.json({error:error.message}, {status:422,headers});}
+    },
+  }), 'split-sidebar: import terminal appearance');
 }
