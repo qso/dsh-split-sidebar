@@ -15,6 +15,7 @@ window.__ModuleLoader__.load({
       try { return {session:decodeURIComponent(match[1]), path:match[2].split('/').map(decodeURIComponent).join('/')}; } catch {}
     }
     const css = `
+    @font-face{font-family:"DSH Prompt Separators";src:local("Symbols Nerd Font Mono"),local("SymbolsNerdFontMono-Regular"),url("data:font/woff2;base64,d09GMgABAAAAAAGsAAoAAAAABAwAAAFhAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAABmAANAqBCG4BNgIkAwwLDAAEIAWCYgdMGzUDAJ4FTlkWp+YIMoeNQzwKP/JJGQ8fa+39c0kGSaerTNdQITQqhKIpWugMJe6QrJ3k/b+bd0CBfpC2hpO753PUpgIgcRRHp27yfxMsoEldlKe0FoVdGKUBraWSwGtt0ijydJvMUjsKRJWC4u+tsjGLl7ycwbQAB4uS1+QjCymWwhfAFuUZZNELQ8U5i8jlg+QjTc/S6PGFc4QB5EEFOXSwBMgBwtLZQly8VizC1vxKZ9hYmEqoRWcjWThJmL5b2A8Cwf+kPC2GeSmb/eH73iAEpFTMsovIyoDg7mnMmNIA/MhTPgnkFQTIMGtKbjAIfQTIKOrHbM7IEKFgYEtW5MrCmquYzWi4Y3O2PawoWPd5SlY4u498vnCpT37z97if76rq6wNgC4VOlH8ZGskKzu4jny+41Ce/+Xvcz6btl/jeedAi6kWlrHp3LNYCQJ7IRDZykS/e7n5qjhufaIku6AEAAAA=") format("woff2");unicode-range:U+E0B0-E0B3;font-display:swap}
     .ss-toggle{width:28px;padding:0!important;flex:none;color:var(--dsw-alias-label-secondary)}
     .ss-toggle svg{width:15px;height:15px;transform:rotate(90deg) scaleX(-1)}
     .ss-settings{color:var(--dsw-alias-label-primary);width:100%;box-sizing:border-box;min-width:0}
@@ -81,6 +82,30 @@ window.__ModuleLoader__.load({
       const getTheme = () => ctx.theme.getTheme();
       const useTheme = () => React.useSyncExternalStore(watchTheme,getTheme);
       const settingsKind='split-sidebar-settings';
+      // CSS font-family can name a missing font. Explicitly offer an actual
+      // Powerline face ahead of generic system fallback for the four dividers.
+      // Apply it to painted cells only. The host still measures the text font.
+      ctx.effect(() => {
+        const style=document.createElement('style');
+        document.head.append(style);
+        const sheet=style.sheet;
+        const index=sheet.insertRule('[data-sidebar-terminal] .xterm-rows > div {}');
+        const rule=sheet.cssRules[index].style;
+        const fallback='"DSH Prompt Separators"';
+        let last;
+        function update(){
+          const preference=getTheme().fontFamilies.terminal;
+          if(preference===last)return;
+          last=preference;
+          const families=preference.split(',').map(name=>name.trim()).filter(Boolean);
+          const generic=families.findIndex(name=>!name.startsWith('"'));
+          families.splice(generic<0?families.length:generic,0,fallback);
+          rule.fontFamily=[...families,'ui-monospace','SFMono-Regular','Menlo','Consolas','monospace'].join(', ');
+        }
+        update();
+        const off=watchTheme(update);
+        return ()=>{off();style.remove();};
+      },'split-sidebar: terminal glyph fallback');
       function applyColors(style, profile) {
         const valid = color => typeof color === 'string' && /^#[0-9a-f]{6}$/i.test(color);
         const root = '[data-sidebar-terminal]';
@@ -89,8 +114,11 @@ window.__ModuleLoader__.load({
         if (valid(bg)) rules.push(root+'{--dsw-alias-bg-base:'+bg+';background:'+bg+'}',root+' .xterm-scrollable-element{background-color:'+bg+'!important}');
         if (valid(fg)) rules.push(root+'{--dsw-alias-label-primary:'+fg+'}',root+' .xterm-rows{color:'+fg+'}');
         const pad = (pair,i) => Array.isArray(pair) && Number.isInteger(pair[i]) ? Math.max(0,Math.min(64,pair[i]))+'px' : '8px';
-        if (profile?.paddingX || profile?.paddingY) rules.push(root+' div:has(> .xterm){padding:'+[
-          pad(profile.paddingY,0),pad(profile.paddingX,1),pad(profile.paddingY,1),pad(profile.paddingX,0)].join(' ')+'}');
+        if (profile?.paddingX || profile?.paddingY) {
+          rules.push(root+'{padding-top:0;--ss-screen-top:'+pad(profile.paddingY,0)+'}');
+          rules.push(root+' div:has(> .xterm){padding:'+[
+            pad(profile.paddingY,0),pad(profile.paddingX,1),pad(profile.paddingY,1),pad(profile.paddingX,0)].join(' ')+'}');
+        }
         style.textContent = rules.join('\n');
       }
       ctx.effect(() => {
@@ -137,7 +165,7 @@ window.__ModuleLoader__.load({
       const opened=new Set();
       let panelModule, workbench, disposed=false;
       function loadPanel() {
-        panelModule ??= import(new URL('api/split-sidebar/panel.mjs?v=0.3.0',document.baseURI).href)
+        panelModule ??= import(new URL('api/split-sidebar/panel.mjs?v=0.3.1',document.baseURI).href)
           .then(m=>{ if(disposed) throw Error('侧栏已关闭'); return workbench=m.createWorkbench(React,ctx,{ui,useTheme}); })
           .catch(error=>{panelModule=undefined;throw error;});
         return panelModule;
@@ -275,7 +303,7 @@ window.__ModuleLoader__.load({
       ctx.effect(() => {
         const style = document.createElement('style');
         style.textContent = css; document.head.append(style);
-        document.documentElement.dataset.dshSplitSidebar='0.3.0';
+        document.documentElement.dataset.dshSplitSidebar='0.3.1';
         return () => { style.remove(); delete document.documentElement.dataset.dshSplitSidebar; };
       }, 'split-sidebar: style');
       const add = (name, options, component) => ctx.effect(() => ctx.slots.inject(name, () =>
