@@ -20,20 +20,20 @@ test('ticket issuance requires an explicit media request, seeking reads only req
   const ctx={workspaceFiles:files,typert:{lookups:{get:()=>({resolve:sessionId=>({sessionId,workspaceRoot:'/'})})}},attachments:{imageLimits:{maxImageBytes:50}},
     connection:{fetch:{register(r){routes[r.path]=r;return ()=>{};}}},on(){},effect(fn){disposers.push(fn());}};
   apply(ctx);
-  const mint=(headers)=>routes['/api/dockline-preview'].fetch(new Request('http://localhost/api/dockline-preview',
+  const mint=(headers)=>routes['/api/split-sidebar-preview'].fetch(new Request('http://localhost/api/split-sidebar-preview',
     {method:'POST',headers,body:JSON.stringify({session:'s',path:'sample.mp4'})}));
-  const request=(ticket,range,method='GET')=>routes['/api/dockline-media'].fetch(new Request('http://localhost/api/dockline-media?ticket='+ticket,
+  const request=(ticket,range,method='GET')=>routes['/api/split-sidebar-media'].fetch(new Request('http://localhost/api/split-sidebar-media?ticket='+ticket,
     {method,headers:range?{Range:range}:{}}));
   try {
     assert.equal((await mint({})).status,403);
-    const {docklineTicket}=await (await mint({'X-Dockline-Preview':'1','Content-Type':'application/json'})).json();assert.match(docklineTicket,/^[a-f0-9]{64}$/);
+    const {playbackTicket}=await (await mint({'X-Split-Sidebar-Preview':'1','Content-Type':'application/json'})).json();assert.match(playbackTicket,/^[a-f0-9]{64}$/);
     assert.equal((await request('unknown','bytes=0-1')).status,404);
-    assert.equal((await request(docklineTicket,'bytes=3-2')).status,416);
+    assert.equal((await request(playbackTicket,'bytes=3-2')).status,416);
     ranges.length=0;
-    const response=await request(docklineTicket,'bytes=100000-102047');
+    const response=await request(playbackTicket,'bytes=100000-102047');
     assert.equal(response.status,206);assert.equal(response.headers.get('content-range'),'bytes 100000-102047/200000');
     assert.equal((await response.arrayBuffer()).byteLength,2048);assert.deepEqual(ranges,[{offset:100000,length:1024},{offset:101024,length:1024}]);
-    version='b';await assert.rejects((await request(docklineTicket,'bytes=0-4')).arrayBuffer());
+    version='b';await assert.rejects((await request(playbackTicket,'bytes=0-4')).arrayBuffer());
   } finally {for(const fn of disposers.reverse())fn();}
   assert.equal(files.readBytes,native);
 });

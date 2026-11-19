@@ -1,4 +1,4 @@
-# Contributing to DSH Dockline
+# Contributing to DSH Split Sidebar
 
 Use Node.js 22.19 or later. Install with `npm ci --ignore-scripts` and run `npm test`. Check distributable files with `npm pack --dry-run`.
 

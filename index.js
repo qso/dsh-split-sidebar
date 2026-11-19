@@ -1,3 +1,4 @@
+import {registerAssets} from './assets.js';
 import z from '@deepseek-ai/schemastery';
 export const Config = z.object({
   chunkKiB: z.number().step(1).min(16).max(1024).default(256),
@@ -18,6 +19,7 @@ const media = {
   opus:'audio/ogg', flac:'audio/flac', ogv:'video/ogg', avi:'video/x-msvideo',
 };
 export function apply(ctx, options = {}) {
+  registerAssets(ctx);
   const files = ctx.workspaceFiles;
   const chunkKiB = Number.isInteger(options.chunkKiB) ? options.chunkKiB : 256;
   const chunk = Math.max(1, Math.min(files.config.maxBytes, Math.max(16, Math.min(chunkKiB, 1024)) * 1024));
@@ -26,18 +28,18 @@ export function apply(ctx, options = {}) {
     streaming: options.streaming !== false, nativePlayer: options.nativePlayer !== false,
     smallLimit: Math.min(files.config.maxFileBytes, ctx.attachments.imageLimits.maxImageBytes),
   };
-  ctx.on('webserver/index-inject', table => table.push({kind:'global', name:'__DSH_DOCKLINE__', value:prefs}));
+  ctx.on('webserver/index-inject', table => table.push({kind:'global', name:'__DSH_SPLIT_SIDEBAR__', value:prefs}));
   if (!prefs.streaming) return;
   const tickets = new Map();
   const ttl = 15 * 60 * 1000;
   const lookup = id => ctx.typert.lookups.get('workspaceFileScope')?.resolve(id);
   const denied = status => new Response(null, {status, headers:{'Cache-Control':'private, no-store'}});
-  ctx.effect(() => () => tickets.clear(), 'dockline: release playback tickets');
+  ctx.effect(() => () => tickets.clear(), 'split-sidebar: release playback tickets');
   // DSH grants exact fetch routes to the authenticated owner peer only.
   ctx.effect(() => ctx.connection.fetch.register({
-    path:'/api/dockline-preview', methods:['POST'], requestBody:'buffered',
+    path:'/api/split-sidebar-preview', methods:['POST'], requestBody:'buffered',
     async fetch(request) {
-      if (request.headers.get('X-Dockline-Preview') !== '1' ||
+      if (request.headers.get('X-Split-Sidebar-Preview') !== '1' ||
           request.headers.get('content-type') !== 'application/json') return denied(403);
       try {
         const {session, path} = await request.json();
@@ -54,13 +56,13 @@ export function apply(ctx, options = {}) {
         if (tickets.size >= 32) tickets.delete(tickets.keys().next().value);
         const ticket = randomBytes(32).toString('hex');
         tickets.set(ticket, item);
-        return Response.json({docklineTicket:ticket, absolutePath:meta.absolutePath, bytes:meta.bytes, version:meta.version},
+        return Response.json({playbackTicket:ticket, absolutePath:meta.absolutePath, bytes:meta.bytes, version:meta.version},
           {headers:{'Cache-Control':'private, no-store'}});
       } catch { return denied(404); }
     },
-  }), 'dockline: open media');
+  }), 'split-sidebar: open media');
   ctx.effect(() => ctx.connection.fetch.register({
-    path:'/api/dockline-media', methods:['GET','HEAD'], requestBody:'buffered',
+    path:'/api/split-sidebar-media', methods:['GET','HEAD'], requestBody:'buffered',
     async fetch(request) {
       const key = new URL(request.url).searchParams.get('ticket');
       const item = tickets.get(key);
@@ -95,5 +97,5 @@ export function apply(ctx, options = {}) {
         cancel() { life.abort(); },
       }), {headers,status});
     },
-  }), 'dockline: media playback');
+  }), 'split-sidebar: media playback');
 }

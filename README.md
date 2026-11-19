@@ -1,35 +1,38 @@
-# DSH Dockline
+# DSH Split Sidebar
 
-A compact file workbench for DeepSeek Harness. Browse a folder beside its preview, switch open files from the bottom bar, and seek through large local media without waiting for a complete download. Tested with DSH Desktop 0.2.2-rc.5 on macOS.
+在上半屏看对话，在下半屏跑终端。点会话右上角的**水平分屏图标**，输入框下面就有一个独立工作区。收起时，整列高度都还给会话。
 
-## 安装与使用
+## 一边对话，一边做事
 
-在 DSH 插件管理器中通过 GitHub 安装 `github:qso/dsh-dockline#v0.1.0`，启用后重启 DSH。也可克隆本仓库，运行 `npm ci --ignore-scripts`，然后安装为本地插件。可搭配 [DSH Afterburn](https://github.com/qso/dsh-afterburn) 加快会话切换与首次展开目录。
+- **开几个真正独立的终端。** 第一次展开会打开终端。点标签旁的 **＋ → 新建终端**，就能在一个终端跑开发服务，在另一个看日志。各个终端使用 DSH 的原生进程和当前会话的工作目录。收起分屏或切走会话后，再回来可以接着输入。关闭终端标签会结束对应进程。
+- **把文件留在手边。** **＋ → 已打开的文件**列出这个会话已经打开的文件。选中一个即可回到对应预览。右侧面板宽度达到 400 像素时，也可以同时看目录树和文件内容，直接点下一个文件。
+- **拖到一段视频中间就能看。** 音视频按需分段读取，可以直接拖动进度条。实测一个 38.4 MB 的 WAV，跳到 32 MiB 处请求 1 KiB，只传回了这 1 KiB。侧栏使用浏览器解码。遇到特殊编码，可用本机播放器打开，系统列出 IINA 时优先选择 IINA。图片保留宿主的缩放控件，PDF、文本和表格沿用 DSH 各自的预览。
+- **需要时才占资源。** 合上的分屏占用 0 像素。分屏代码首次展开时加载，终端模拟器第一次选中终端时才加载。隐藏终端会拆下屏幕渲染器并保留进程。浏览其他会话时不会替它们创建终端。
 
-- 在会话底部点击「文件树」，选中文件后，同一个侧栏同时显示文件树和预览。面板至少 400 像素宽时自动并排。窄屏保留宿主导航方式。分隔线可拖动。
-- 「已打开文件」列出当前会话的文件标签。选择文件会跳到原标签。「终端」返回当前会话已开的终端，首次点击时创建。底部菜单与 DSH 自带底部面板共存。
-- 图片沿用 DSH 的缩放控件，文本、PDF、表格和办公文档沿用宿主支持的预览。音视频使用系统 WebView 的解码器，默认仅预读媒体信息。浏览器可以按需请求文件末尾或任意片段。
-- 部分 MKV、AVI、MOV 或特殊编码依赖本机解码器。点击「在本机播放器打开」会优先选择系统为该文件列出的 IINA，其次使用默认程序。IINA 是独立应用，可自行安装。也可以选择本地媒体文件在侧栏播放，浏览器直接使用所选文件。
-- Dockline 参考了 [DSH Better Sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) 的工作区布局思路。实现复用 DSH 文件树、标签与终端。可以单独安装。
+## 位置与设置
 
-## 配置
+拖动分屏上边缘调高度，或聚焦分隔线后按上下方向键。点击下方面板右侧的小齿轮，会在面板里打开设置标签。在右侧文件预览的工具栏点击齿轮，也可以把设置打开为右侧独立标签。这里可以设置默认打开终端或文件列表、文件双列和媒体预读。
 
-底部「侧栏设置」可随时切换双列、终端入口和媒体预读。这些偏好保存在当前浏览器。插件配置决定初始值和宿主行为。
-
-| 选项 | 默认值 | 用途 |
+| 插件配置 | 默认值 | 用途 |
 | --- | --- | --- |
-| `showDock` | true | 显示会话底部菜单 |
-| `autoSplit` | true | 宽面板默认打开并排导航，可在菜单覆盖 |
-| `nativePlayer` | true | 显示本机播放器入口 |
-| `streaming` | true | 开启经 DSH 鉴权的媒体分段传输 |
-| `chunkKiB` | 256 | 每次向宿主读取的上限，16–1024 KiB，同时遵守 DSH 的更低上限 |
+| `showDock` | true | 提供会话标题右侧的水平分屏按钮 |
+| `autoSplit` | true | 宽面板默认并排显示文件树和预览 |
+| `nativePlayer` | true | 提供本机播放器入口 |
+| `streaming` | true | 对已授权的音视频启用分段传输 |
+| `chunkKiB` | 256 | 单次读取上限，16–1024 KiB，并遵守宿主更低的限制 |
 
-## Playback and privacy
+## 安装
 
-Only DSH's authenticated owner can open a streaming preview. Dockline resolves the session through the host's workspace lookup, reads with the host filesystem policy and issues a short-lived random playback ticket. Seeking uses HTTP byte ranges. Each chunk checks the source version. A changed file can be reopened with the host reload button. Up to 32 tickets are retained in memory. Idle tickets expire after 15 minutes. Media responses are marked private and no-store. The plugin has no external service or analytics.
+在 DSH 插件管理器里通过 GitHub 安装 `github:qso/dsh-split-sidebar#v0.2.0`。本地开发可克隆仓库、运行 `npm ci --ignore-scripts`，再选择该目录安装。已在 macOS 的 DSH Desktop 0.2.2-rc.5 验证。原名为 DSH Dockline，已有旧版的用户请使用新版替换旧包，避免两个侧栏同时加载。
 
-Browser codec support varies. If streaming is disabled, the host's full-file preview limit applies to inline playback through its standard media route. Large images, PDFs and office files use the host's limits. Disabling Dockline and restarting restores the original sidebar.
+希望进一步加快长会话切换与目录首次打开，可以同时安装 [DSH Better Performance](https://github.com/qso/dsh-better-performance)。
 
-## Development
+## 隐私与兼容性
 
-Use Node.js 22.19 or later. Run `npm ci --ignore-scripts`, `npm test`, and `npm pack --dry-run`. The tests exercise ranges, seeking, ticket checks and invalidation using synthetic media. MIT licensed.
+媒体通过当前 DSH 连接读取。只有经宿主认证的所有者能申请短期播放地址，每个分段校验源文件版本。插件不上传媒体、终端输出或会话。大图片、PDF 和办公文件受宿主预览上限约束。MKV、AVI、MOV 的播放能力取决于实际编码。本机 IINA 单独安装。终端进程寿命也受 DSH 关闭和宿主自身的回收策略约束。
+
+布局灵感来自 [DSH Better Sidebar](https://github.com/omdsh-dev/DSH-better-sidebar)。终端显示使用 [xterm.js](https://github.com/xtermjs/xterm.js)，随插件依赖安装并从本机加载。
+
+## 开发
+
+使用 Node.js 22.19 或更高版本。运行 `npm ci --ignore-scripts`、`npm test` 和 `npm pack --dry-run`。MIT 许可证。

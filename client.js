@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id:'dsh-dockline',
+  id:'dsh-split-sidebar',
   factory(require) {
     const React = require('react');
     const {createPortal} = require('react-dom');
@@ -13,24 +13,22 @@ window.__ModuleLoader__.load({
       try { return {session:decodeURIComponent(match[1]), path:match[2].split('/').map(decodeURIComponent).join('/')}; } catch {}
     }
     const css = `
-    .dl-dock{border-top:1px solid var(--dsw-alias-border-l2,#8885);font:inherit;color:var(--dsw-alias-label-primary,inherit)}
-    .dl-bar,.dl-settings,.dl-tabs{display:flex;align-items:center;gap:4px;padding:3px 10px;flex-wrap:wrap}
-    .dl-bar button,.dl-settings button,.dl-tabs button,.dl-media button,.dl-media label{color:inherit;background:transparent;border:0;border-radius:5px;padding:4px 9px;font:inherit;font-size:12px;cursor:pointer}
-    .dl-dock button:hover,.dl-dock button[aria-expanded=true],.dl-media button:hover{background:var(--dsw-alias-bg-layer-2,#8882)}
-    .dl-dock button:focus-visible,.dl-media button:focus-visible{outline:2px solid Highlight}
-    .dl-bar button:last-child{margin-inline-start:auto}.dl-tabs,.dl-settings{border-bottom:1px solid var(--dsw-alias-border-l1,#8883);max-height:18vh;overflow:auto}
-    .dl-tabs button{max-width:24em;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.dl-settings label{font-size:12px;padding:4px 8px}
+    .ss-icon,.ss-tab-action{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;flex:none;padding:0;background:transparent;color:inherit;border:0;border-radius:6px;cursor:pointer}
+    .ss-icon:hover,.ss-icon[aria-pressed=true],.ss-tab-action:hover{background:var(--dsw-alias-bg-layer-2,#8882)}
+    .ss-icon:focus-visible,.ss-panel button:focus-visible{outline:2px solid Highlight}
+    .ss-settings{padding:16px;display:grid;align-content:start;gap:14px}.ss-settings label{display:flex;align-items:center;gap:8px}
+    .dl-media button,.dl-media label{cursor:pointer;color:inherit;background:transparent;border:1px solid var(--dsw-alias-border-l1,#8883);border-radius:6px;padding:4px 8px}
     .dl-media{display:flex;flex-direction:column;gap:8px;align-items:center;width:100%;padding:8px;box-sizing:border-box}
     .dl-media video,.dl-media audio{display:block;width:100%;max-height:65vh;object-fit:contain}.dl-media p{font-size:13px;margin:6px}
     [data-dl-split] [data-files-navigator-mode=overlay]{position:relative;inset:auto;align-self:stretch;flex:0 0 min(var(--files-navigator-width),42%);width:min(var(--files-navigator-width),42%);margin:4px;height:auto}
     `;
     function apply(ctx) {
-      const defaults = {showDock:true, autoSplit:true, nativePlayer:true, streaming:true, ...window.__DSH_DOCKLINE__};
-      const storageKey = 'dsh-dockline.preferences.v1';
+      const defaults = {showDock:true, autoSplit:true, nativePlayer:true, streaming:true, ...window.__DSH_SPLIT_SIDEBAR__};
+      const storageKey = 'dsh-split-sidebar.preferences.v1';
       let saved = {};
-      try { saved = JSON.parse(localStorage.getItem(storageKey) || '{}') || {}; } catch {}
+      try { saved = JSON.parse(localStorage.getItem(storageKey) || localStorage.getItem('dsh-dockline.preferences.v1') || '{}') || {}; } catch {}
       const settings = {split:typeof saved.split === 'boolean' ? saved.split : defaults.autoSplit,
-        terminal:saved.terminal !== false, preload:saved.preload === 'none' ? 'none' : 'metadata'};
+        defaultTab:saved.defaultTab === 'files' || saved.terminal === false ? 'files' : 'terminal', preload:saved.preload === 'none' ? 'none' : 'metadata'};
       const notify = new EventTarget();
       function set(key, value) {
         settings[key] = value;
@@ -66,51 +64,57 @@ window.__ModuleLoader__.load({
         }, [split]);
         return h('span',{ref,hidden:true});
       }
-      function FileTabs({session, close}) {
-        const store = ctx.sidebarRight.openTabs;
-        const rows = React.useSyncExternalStore(fn => store.subscribe(fn), () => store.getSnapshot())
-          .filter(tab => tab.sessionId === session && tab.contentId.startsWith('dsh-resource://file/'));
-        return h('div',{className:'dl-tabs'},rows.length ? rows.map(tab => {
-          const path = parse(tab.contentId)?.path ?? tab.contentId;
-          return h('button',{key:tab.tabId,title:path,onClick:() => {
-            if (!ctx.sidebarRight.isExpanded()) ctx.sidebarRight.toggleExpanded();
-            ctx.sidebarRight.focus(tab.tabId); close();
-          }},path.split('/').at(-1));
-        }) : h('small',null,'当前会话还没有打开文件'));
+      function Icon({name}) {
+        const paths={split:'M3.5 5h17v14h-17z M4 13.5h16',settings:'M10.4 3h3.2l.6 2.3 2 .9 2.1-.9 1.6 2.8-1.7 1.6.2 2.3 1.5 1.7-1.6 2.8-2.2-.6-1.9 1.1-.6 2.3h-3.2l-.7-2.3-2-1-2.1.6L4 13.8l1.6-1.6.1-2.3L4 8.3l1.6-2.8 2.2.7 2-1z M14.5 11.5a2.5 2.5 0 1 0-5 0 2.5 2.5 0 0 0 5 0'};
+        return h('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.6,
+          strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:paths[name]}));
       }
-      function Dock() {
-        const [mount,setMount] = React.useState(null);
-        React.useLayoutEffect(() => {setMount(document.querySelector('[data-shell-bottom]'));},[]);
-        const [drawer,setDrawer] = React.useState('');
-        const panels = ctx.layout.panelInfo;
-        const inSession = React.useSyncExternalStore(fn => panels.subscribe(fn), () => panels.getSnapshot().activePanelId === null);
-        const sessions = ctx.sessions.list;
-        const current = React.useSyncExternalStore(fn => sessions.subscribe(fn), () => {
-          const {ids,byId} = sessions.getSnapshot();
-          return ids.find(id => byId[id]?.retainedBy.mainView > 0) ?? '';
-        });
-        const split = useSetting('split'), terminal = useSetting('terminal'), preload = useSetting('preload');
-        React.useEffect(() => {setDrawer('');},[current]);
-        const button = (label,run,props={}) => h('button',{type:'button',onClick:run,...props},label);
-        const toggle = key => setDrawer(old => old === key ? '' : key);
-        function open(kind) {
-          if (!ctx.sidebarRight.commandTarget(null)) return;
-          const tab = ctx.sidebarRight.openTabs.getSnapshot().find(t => t.sessionId === current && t.kind === kind);
-          if (tab) { if (!ctx.sidebarRight.isExpanded()) ctx.sidebarRight.toggleExpanded(); ctx.sidebarRight.focus(tab.tabId); }
-          else ctx.sidebarRight.openTab(kind);
-          setDrawer('');
+      function Settings() {
+        const split=useSetting('split'),preload=useSetting('preload'),first=useSetting('defaultTab');
+        return h('section',{className:'ss-settings','aria-label':'分屏侧栏设置'},
+          h('label',null,h('input',{type:'checkbox',checked:split,onChange:e=>set('split',e.target.checked)}),'文件树与预览并排'),
+          h('label',null,h('input',{type:'checkbox',checked:preload==='metadata',onChange:e=>set('preload',e.target.checked?'metadata':'none')}),'打开媒体时预读播放信息'),
+          h('label',null,'空面板首次打开',h('select',{value:first,onChange:e=>set('defaultTab',e.target.value)},
+            h('option',{value:'terminal'},'终端'),h('option',{value:'files'},'已打开的文件'))));
+      }
+      const settingsKind='split-sidebar-settings';
+      function SettingsGear() {
+        return h('button',{className:'ss-icon',type:'button',title:'分屏侧栏设置','aria-label':'分屏侧栏设置',
+          onClick:()=>ctx.sidebarRight.openTab(settingsKind)},h(Icon,{name:'settings'}));
+      }
+      const opened=new Set();
+      let panelModule, workbench, disposed=false;
+      function loadPanel() {
+        panelModule ??= import(new URL('api/split-sidebar/panel.mjs',document.baseURI).href)
+          .then(m=>{ if(disposed) throw Error('侧栏已关闭'); return workbench=m.createWorkbench(React,ctx,{Settings,Icon,settings}); })
+          .catch(error=>{panelModule=undefined;throw error;});
+        return panelModule;
+      }
+      ctx.effect(()=>()=>{disposed=true;workbench?.dispose();opened.clear();},'split-sidebar: panel lifetime');
+      function HeaderButton({sessionId}) {
+        const ref=React.useRef(null);
+        const [open,setOpen]=React.useState(()=>opened.has(sessionId));
+        const [panel,setPanel]=React.useState(()=>workbench);
+        const [error,setError]=React.useState('');
+        const [attempt,retry]=React.useReducer(n=>n+1,0);
+        React.useEffect(()=>{
+          if(!open || panel)return;
+          let active=true;
+          loadPanel().then(value=>{if(active)setPanel(value);}).catch(()=>{if(active)setError('分屏载入失败');});
+          return ()=>{active=false;};
+        },[open,panel,attempt]);
+        function toggle() {
+          if(open)opened.delete(sessionId);else opened.add(sessionId);
+          setOpen(!open);setError('');
         }
-        if (!mount || !current || !inSession) return null;
-        return createPortal(h('div',{className:'dl-dock',onKeyDown:e => {if(e.key === 'Escape') setDrawer('');}},
-          drawer === 'files' && h(FileTabs,{session:current, close:() => setDrawer('')}),
-          drawer === 'settings' && h('div',{className:'dl-settings'},
-            ...[['文件树与预览并排','split',split],['显示终端入口','terminal',terminal],['预读媒体信息','preload',preload === 'metadata']]
-              .map(([label,key,checked]) => h('label',{key},h('input',{type:'checkbox',checked,onChange:e => set(key,key === 'preload' ? (e.target.checked?'metadata':'none') : e.target.checked)}),label))),
-          h('nav',{className:'dl-bar','aria-label':'Dockline 工作台'},
-            button('文件树',() => open('files')),button('已打开文件',() => toggle('files'),{'aria-expanded':drawer==='files'}),
-            terminal && button('终端',() => open('terminal')),
-            button('侧栏设置',() => toggle('settings'),{'aria-expanded':drawer==='settings'}))),mount);
+        const shell=ref.current?.closest('[data-phase]');
+        const button=h('button',{ref,type:'button',className:'ss-icon','data-split-sidebar-toggle':'',
+          title:open?'收起下方分屏':'向下分屏','aria-label':open?'收起下方分屏':'向下分屏','aria-expanded':open,onClick:toggle},h(Icon,{name:'split'}));
+        return h(React.Fragment,null,button,open&&shell&&createPortal(panel?
+          h(panel.Panel,{session:sessionId,collapse:toggle}):
+          h('div',{role:'status'},error?h('button',{onClick:()=>{setError('');retry();}},error+'，重试'):'正在打开分屏…'),shell));
       }
+      function Header({sessionId}) { return h(HeaderButton,{key:sessionId,sessionId}); }
       function Media({content,resourceAddress}) {
         const state = React.useRef(content);
         state.current = content;
@@ -131,9 +135,9 @@ window.__ModuleLoader__.load({
             if (!file) throw Error('此文件地址无法用于媒体预览');
             let meta;
             if (defaults.streaming) {
-              const ticket = await fetch(new URL('api/dockline-preview',document.baseURI), {
+              const ticket = await fetch(new URL('api/split-sidebar-preview',document.baseURI), {
                 method:'POST',credentials:'same-origin',redirect:'error',signal,
-                headers:{'Content-Type':'application/json','X-Dockline-Preview':'1'},
+                headers:{'Content-Type':'application/json','X-Split-Sidebar-Preview':'1'},
                 body:JSON.stringify(file),
               });
               if (ticket.ok) meta = await ticket.json();
@@ -145,9 +149,9 @@ window.__ModuleLoader__.load({
             }
             const type = mime[file.path.split('.').at(-1).toLowerCase()];
             let source;
-            if (/^[a-f0-9]{64}$/.test(meta.docklineTicket || '')) {
-              source = new URL('api/dockline-media',document.baseURI);
-              source.searchParams.set('ticket',meta.docklineTicket);
+            if (/^[a-f0-9]{64}$/.test(meta.playbackTicket || '')) {
+              source = new URL('api/split-sidebar-media',document.baseURI);
+              source.searchParams.set('ticket',meta.playbackTicket);
             } else if (meta.bytes <= defaults.smallLimit) {
               source = new URL('api/file',document.baseURI);
               source.search = new URLSearchParams({path:meta.absolutePath,v:meta.version});
@@ -176,7 +180,7 @@ window.__ModuleLoader__.load({
         }
         if (!item) return h('p',{role:'status'},message || '正在读取媒体信息…');
         const source = alternate ?? item.source;
-        return h('div',{className:'dl-media','data-dockline-media':item.type},
+        return h('div',{className:'dl-media','data-split-sidebar-media':item.type},
           source && !broken && h(item.type.startsWith('video/')?'video':'audio',
             {key:source,src:source,controls:true,playsInline:true,preload,onError:() => setBroken(true)}),
           (!source || broken) && h('p',{role:'status'},'当前文件需要其他播放方式。'),
@@ -189,18 +193,24 @@ window.__ModuleLoader__.load({
       ctx.effect(() => {
         const style = document.createElement('style');
         style.textContent = css; document.head.append(style);
-        document.documentElement.dataset.dshDockline='0.1.0';
-        return () => { style.remove(); delete document.documentElement.dataset.dshDockline; };
-      }, 'dockline: style');
+        document.documentElement.dataset.dshSplitSidebar='0.2.0';
+        return () => { style.remove(); delete document.documentElement.dataset.dshSplitSidebar; };
+      }, 'split-sidebar: style');
       const add = (name, options, component) => ctx.effect(() => ctx.slots.inject(name, () =>
-        ctx.slots.register({name,...options},component)), 'dockline: '+name);
-      if (defaults.showDock) add('shell.overlay',{id:'dockline.bar'},Dock);
-      add('sidebar.right.tab.document.actions',{id:'dockline.navigator'},Split);
-      const id = 'dsh-dockline/media', extensions = Object.keys(mime);
+        ctx.slots.register({name,...options},component)), 'split-sidebar: '+name);
+      if (defaults.showDock) add('conversation.session.header.utilities',{id:'split-sidebar.horizontal',order:10},Header);
+      const settingsId='dsh-split-sidebar/settings';
+      ctx.effect(()=>ctx.sidebarRightTabs.register({id:settingsId,kind:settingsKind,multiple:false,priority:'extension',title:()=>'分屏侧栏设置'}),
+        'split-sidebar: settings tab');
+      add('sidebar.right.pane.tab',{key:settingsId},Settings);
+      add('sidebar.right.tab.guide.actions',{id:'split-sidebar.settings'},SettingsGear);
+      add('sidebar.right.tab.document.actions',{id:'split-sidebar.settings'},SettingsGear);
+      add('sidebar.right.tab.document.actions',{id:'split-sidebar.navigator'},Split);
+      const id = 'dsh-split-sidebar/media', extensions = Object.keys(mime);
       ctx.effect(() => ctx.documentPreviews.register({id,extensions,binaryExtensions:extensions,priority:'extension',
-        title:()=>'Dockline 媒体播放器',loading:'renderer'}),'dockline: media');
+        title:()=>'侧栏媒体播放器',loading:'renderer'}),'split-sidebar: media');
       add('sidebar.right.tab.document',{key:id},Media);
     }
-    return {inject:['slots','sessions','layout','sidebarRight','documentPreviews','remote','remote.workspaceFiles','remote.session'],apply};
+    return {inject:['slots','sessions','sidebarRight','sidebarRightTabs','webTerminals','remote.terminal','documentPreviews','remote','remote.workspaceFiles','remote.session'],apply};
   },
 });
